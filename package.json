@@ -1,0 +1,21 @@
+{
+  "name": "polymakert-proxy-redeem",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "redeem": "ts-node src/redeem.ts"
+  },
+  "dependencies": {
+    "@polymarket/builder-relayer-client": "^0.0.8",
+    "@polymarket/builder-signing-sdk": "^0.0.8",
+    "@polymarket/relayer-client": "^3.0.0",
+    "dotenv": "^16.6.1",
+    "ethers": "^6.16.0",
+    "viem": "^2.42.0"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}
