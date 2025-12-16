@@ -4,9 +4,12 @@
   "private": true,
   "type": "commonjs",
   "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
     "redeem": "ts-node src/redeem.ts",
     "server": "ts-node src/server.ts",
-    "start": "ts-node src/server.ts"
+    "start": "ts-node src/server.ts",
+    "start:prod": "node dist/src/server.js"
   },
   "dependencies": {
     "@polymarket/builder-relayer-client": "^0.0.8",
