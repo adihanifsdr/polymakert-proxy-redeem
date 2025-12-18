@@ -14,16 +14,43 @@ app.use(express.json());
 
 // API Key authentication middleware
 function authenticateApiKey(req: Request, res: Response, next: NextFunction) {
-  const apiKey = req.headers["x-api-key"] || req.headers["authorization"]?.replace("Bearer ", "");
+  // Express normalizes headers to lowercase, so check both lowercase and original case
+  // Headers can be string or string[], so we need to handle both
+  const getHeaderValue = (headerName: string): string | undefined => {
+    const value = req.headers[headerName];
+    if (typeof value === "string") {
+      return value;
+    }
+    if (Array.isArray(value) && value.length > 0) {
+      return value[0];
+    }
+    return undefined;
+  };
+
+  const xApiKey = getHeaderValue("x-api-key") || getHeaderValue("X-API-Key");
+  const authHeader = getHeaderValue("authorization") || getHeaderValue("Authorization");
+  const bearerKey = authHeader?.replace("Bearer ", "");
+  const apiKey = xApiKey || bearerKey;
 
   if (!API_KEY) {
+    console.error("[Auth] API_KEY not configured on server");
     return res.status(500).json({ error: "API_KEY not configured on server" });
   }
 
-  if (!apiKey || apiKey !== API_KEY) {
+  if (!apiKey) {
+    console.error("[Auth] No API key provided in request headers");
+    console.error("[Auth] Available headers:", Object.keys(req.headers));
+    return res.status(401).json({ error: "Unauthorized: API key required" });
+  }
+
+  if (apiKey !== API_KEY) {
+    console.error("[Auth] Invalid API key provided");
+    console.error("[Auth] Expected:", API_KEY ? `${API_KEY.substring(0, 8)}...` : "not set");
+    console.error("[Auth] Received:", apiKey ? `${apiKey.substring(0, 8)}...` : "not set");
     return res.status(401).json({ error: "Unauthorized: Invalid API key" });
   }
 
+  console.log("[Auth] API key authenticated successfully");
   next();
 }
 
@@ -71,6 +98,10 @@ app.post("/redeem", authenticateApiKey, async (req: Request, res: Response) => {
 // Start server
 app.listen(PORT, () => {
   console.log(`[Server] Proxy redeem server listening on port ${PORT}`);
-  console.log(`[Server] API key authentication enabled`);
+  if (API_KEY) {
+    console.log(`[Server] API key authentication enabled (key: ${API_KEY.substring(0, 8)}...)`);
+  } else {
+    console.error(`[Server] WARNING: API_KEY not configured - authentication will fail!`);
+  }
 });
 
