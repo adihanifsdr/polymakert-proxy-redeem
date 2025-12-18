@@ -112,14 +112,50 @@ export async function redeemPositions(
       value: "0",
     }));
 
+    console.log(`Executing proxy transactions...`);
+    const startTime = Date.now();
     const response = await client.execute(transactions, "Redeem positions");
-    const result = await response.wait();
+    const executeTime = Date.now() - startTime;
+    console.log(`Client side proxy request creation took: ${(executeTime / 1000).toFixed(3)} seconds`);
+
+    // Get transaction ID from response (available immediately after execute)
+    // The actual transaction hash will be available after wait() completes
+    const txId = (response as any).id || (response as any).transactionId || "";
+
+    // Try to wait for confirmation with a timeout
+    // This allows us to return quickly if confirmation takes too long
+    let confirmed = false;
+    let txHash = "";
+    let confirmationError: string | undefined;
+    
+    try {
+      // Wait for confirmation with a 20 second timeout (backend has 30s timeout)
+      const waitPromise = response.wait();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Confirmation timeout")), 20000)
+      );
+      
+      const result = await Promise.race([waitPromise, timeoutPromise]);
+      confirmed = true;
+      txHash = (result as any)?.transactionHash || "";
+      console.log(`Transaction confirmed: ${txHash || txId}`);
+    } catch (waitError: any) {
+      // If timeout or other error, we still return success
+      // The transaction was submitted successfully, just couldn't confirm in time
+      confirmationError = waitError.message;
+      console.log(`Transaction submitted but confirmation timed out or failed: ${confirmationError}`);
+      console.log(`Transaction ID: ${txId}`);
+      // Note: For timeout cases, we don't have the on-chain tx hash yet
+      // but the transaction was successfully submitted to the relayer
+    }
 
     return {
       success: true,
-      message: `Successfully redeemed ${redeemablePositions.length} position(s)`,
+      message: confirmed 
+        ? `Successfully redeemed ${redeemablePositions.length} position(s)`
+        : `Transaction submitted for ${redeemablePositions.length} position(s) (confirmation pending)`,
       transactions: transactions,
-      txHash: result?.transactionHash || "",
+      txHash: txHash || txId, // Use hash if confirmed, otherwise use ID
     };
   } catch (error: any) {
     return {
